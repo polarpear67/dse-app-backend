@@ -2,41 +2,41 @@ const express = require('express');
 const mysql = require('mysql2');
 const cors = require('cors');
 const bodyParser = require('body-parser');
-require('dotenv').config(); // Load environment variables
+require('dotenv').config();
 
 const app = express();
+
+// Railway provides a PORT variable. If running locally, it falls back to 3000.
 const PORT = process.env.PORT || 3000;
 
-// --- 1. CRITICAL CORS FIX ---
-// This tells the browser: "Yes, other websites are allowed to touch this data"d
+// --- MIDDLEWARE ---
 app.use(cors({
-    origin: 'https://dse-app-frontend-j6i4zs9bj-polarpear67s-projects.vercel.app/', // Allow ALL origins (Easiest for SBA projects)
+    origin: '*', // Allow all origins (simplest for SBA)
     methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
     allowedHeaders: ['Content-Type', 'Authorization']
 }));
-
-// Handle pre-flight requests (The browser "asks permission" before sending data)
-app.options('*', cors());
 
 app.use(bodyParser.json({ limit: '50mb' })); 
 app.use(bodyParser.urlencoded({ limit: '50mb', extended: true }));
 
 // --- DATABASE CONNECTION ---
-// Uses environment variables for Vercel security
+// This configuration works for both TiDB and Railway's internal MySQL
 const db = mysql.createPool({
     host: process.env.DB_HOST,
     user: process.env.DB_USER,
     password: process.env.DB_PASSWORD,
     database: process.env.DB_NAME,
     port: process.env.DB_PORT || 3306,
-    ssl: { rejectUnauthorized: false }, // Critical for some cloud DBs
+    // SSL Settings: 'rejectUnauthorized: false' allows secure connection 
+    // even if the cloud provider uses a self-signed certificate.
+    ssl: { rejectUnauthorized: false }, 
     waitForConnections: true,
     connectionLimit: 10,
     queueLimit: 0,
     dateStrings: true
 });
 
-// Helper for async queries (Fixes "callback hell")
+// Helper for async queries
 const query = (sql, params) => {
     return new Promise((resolve, reject) => {
         db.query(sql, params, (err, res) => {
@@ -46,12 +46,13 @@ const query = (sql, params) => {
     });
 };
 
-// Test Route
+// --- HEALTH CHECK ---
+// Railway uses this to know your app is alive
 app.get('/', (req, res) => {
-    res.send('DSE Survival Kit API is Live! 🚀');
+    res.send('DSE Survival Kit API is running on Railway! 🚂');
 });
 
-// --- API ENDPOINTS (Refactored for Vercel Stability) ---
+// --- API ENDPOINTS ---
 
 // 1. TASKS
 app.get('/api/tasks', async (req, res) => {
@@ -97,7 +98,6 @@ app.post('/api/questions', async (req, res) => {
         const { subject, topic, question, answer, image, user_id = 1 } = req.body;
         const nextReview = new Date();
         nextReview.setDate(nextReview.getDate() + 1);
-        
         const result = await query(
             'INSERT INTO questions (user_id, subject, topic, question_text, answer_text, image_data, next_review, review_interval) VALUES (?, ?, ?, ?, ?, ?, ?, 1)',
             [user_id, subject, topic, question, answer, image, nextReview]
@@ -217,8 +217,7 @@ app.put('/api/notes/:id', async (req, res) => {
     } catch (e) { res.status(500).json({ error: e.message }); }
 });
 
-
-
-// Export for Vercel
-module.exports = app;
-
+// --- START SERVER ---
+app.listen(PORT, '0.0.0.0', () => {
+    console.log(`🚀 Server running on port ${PORT}`);
+});
