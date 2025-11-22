@@ -6,12 +6,12 @@ require('dotenv').config();
 
 const app = express();
 
-// Railway provides a PORT variable. If running locally, it falls back to 3000.
+// Railway automatically assigns a port via process.env.PORT
 const PORT = process.env.PORT || 3000;
 
 // --- MIDDLEWARE ---
 app.use(cors({
-    origin: '*', // Allow all origins (simplest for SBA)
+    origin: '*', // Allow all origins (Frontend, Postman, etc.)
     methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
     allowedHeaders: ['Content-Type', 'Authorization']
 }));
@@ -20,23 +20,22 @@ app.use(bodyParser.json({ limit: '50mb' }));
 app.use(bodyParser.urlencoded({ limit: '50mb', extended: true }));
 
 // --- DATABASE CONNECTION ---
-// This configuration works for both TiDB and Railway's internal MySQL
+// This uses the variables you set in Railway's "Variables" tab
 const db = mysql.createPool({
     host: process.env.DB_HOST,
     user: process.env.DB_USER,
     password: process.env.DB_PASSWORD,
     database: process.env.DB_NAME,
     port: process.env.DB_PORT || 3306,
-    // SSL Settings: 'rejectUnauthorized: false' allows secure connection 
-    // even if the cloud provider uses a self-signed certificate.
+    // SSL is often required for Cloud Databases (Railway, TiDB, etc.)
     ssl: { rejectUnauthorized: false }, 
     waitForConnections: true,
     connectionLimit: 10,
     queueLimit: 0,
-    dateStrings: true
+    dateStrings: true // Returns dates as strings (YYYY-MM-DD) instead of Objects
 });
 
-// Helper for async queries
+// Helper for async/await queries
 const query = (sql, params) => {
     return new Promise((resolve, reject) => {
         db.query(sql, params, (err, res) => {
@@ -47,12 +46,11 @@ const query = (sql, params) => {
 };
 
 // --- HEALTH CHECK ---
-// Railway uses this to know your app is alive
 app.get('/', (req, res) => {
-    res.send('DSE Survival Kit API is running on Railway! 🚂');
+    res.send('DSE Survival Kit API is Running! 🚀');
 });
 
-// --- API ENDPOINTS ---
+// --- API ENDPOINTS (No User ID) ---
 
 // 1. TASKS
 app.get('/api/tasks', async (req, res) => {
@@ -64,8 +62,9 @@ app.get('/api/tasks', async (req, res) => {
 
 app.post('/api/tasks', async (req, res) => {
     try {
-        const { text, user_id = 1 } = req.body;
-        const result = await query('INSERT INTO tasks (user_id, text) VALUES (?, ?)', [user_id, text]);
+        const { text } = req.body;
+        // Removed user_id from query
+        const result = await query('INSERT INTO tasks (text) VALUES (?)', [text]);
         res.json({ id: result.insertId, text, completed: 0 });
     } catch (e) { res.status(500).json({ error: e.message }); }
 });
@@ -95,12 +94,14 @@ app.get('/api/questions', async (req, res) => {
 
 app.post('/api/questions', async (req, res) => {
     try {
-        const { subject, topic, question, answer, image, user_id = 1 } = req.body;
+        const { subject, topic, question, answer, image } = req.body;
         const nextReview = new Date();
-        nextReview.setDate(nextReview.getDate() + 1);
+        nextReview.setDate(nextReview.getDate() + 1); // Default: Review tomorrow
+        
+        // Removed user_id from query
         const result = await query(
-            'INSERT INTO questions (user_id, subject, topic, question_text, answer_text, image_data, next_review, review_interval) VALUES (?, ?, ?, ?, ?, ?, ?, 1)',
-            [user_id, subject, topic, question, answer, image, nextReview]
+            'INSERT INTO questions (subject, topic, question_text, answer_text, image_data, next_review, review_interval) VALUES (?, ?, ?, ?, ?, ?, 1)',
+            [subject, topic, question, answer, image, nextReview]
         );
         res.json({ id: result.insertId, ...req.body });
     } catch (e) { res.status(500).json({ error: e.message }); }
@@ -126,8 +127,9 @@ app.get('/api/diary', async (req, res) => {
 
 app.post('/api/diary', async (req, res) => {
     try {
-        const { subject, description, dueDate, type, user_id = 1 } = req.body;
-        const result = await query('INSERT INTO diary (user_id, subject, description, due_date, type) VALUES (?, ?, ?, ?, ?)', [user_id, subject, description, dueDate, type]);
+        const { subject, description, dueDate, type } = req.body;
+        // Removed user_id from query
+        const result = await query('INSERT INTO diary (subject, description, due_date, type) VALUES (?, ?, ?, ?)', [subject, description, dueDate, type]);
         res.json({ id: result.insertId, ...req.body });
     } catch (e) { res.status(500).json({ error: e.message }); }
 });
@@ -157,8 +159,9 @@ app.get('/api/finance', async (req, res) => {
 
 app.post('/api/finance', async (req, res) => {
     try {
-        const { description, amount, type, category, user_id = 1 } = req.body;
-        const result = await query('INSERT INTO finance (user_id, description, amount, type, category) VALUES (?, ?, ?, ?, ?)', [user_id, description, amount, type, category]);
+        const { description, amount, type, category } = req.body;
+        // Removed user_id from query
+        const result = await query('INSERT INTO finance (description, amount, type, category) VALUES (?, ?, ?, ?)', [description, amount, type, category]);
         res.json({ id: result.insertId, ...req.body });
     } catch (e) { res.status(500).json({ error: e.message }); }
 });
@@ -180,8 +183,9 @@ app.get('/api/events', async (req, res) => {
 
 app.post('/api/events', async (req, res) => {
     try {
-        const { title, date, user_id = 1 } = req.body;
-        const result = await query('INSERT INTO events (user_id, title, event_date) VALUES (?, ?, ?)', [user_id, title, date]);
+        const { title, date } = req.body;
+        // Removed user_id from query
+        const result = await query('INSERT INTO events (title, event_date) VALUES (?, ?)', [title, date]);
         res.json({ id: result.insertId, title, event_date: date });
     } catch (e) { res.status(500).json({ error: e.message }); }
 });
@@ -203,8 +207,9 @@ app.get('/api/notes', async (req, res) => {
 
 app.post('/api/notes', async (req, res) => {
     try {
-        const { title, body, user_id = 1 } = req.body;
-        const result = await query('INSERT INTO notes (user_id, title, body) VALUES (?, ?, ?)', [user_id, title, body]);
+        const { title, body } = req.body;
+        // Removed user_id from query
+        const result = await query('INSERT INTO notes (title, body) VALUES (?, ?)', [title, body]);
         res.json({ id: result.insertId, title, body });
     } catch (e) { res.status(500).json({ error: e.message }); }
 });
@@ -218,6 +223,7 @@ app.put('/api/notes/:id', async (req, res) => {
 });
 
 // --- START SERVER ---
+// '0.0.0.0' is required for Railway to bind to the external network
 app.listen(PORT, '0.0.0.0', () => {
     console.log(`🚀 Server running on port ${PORT}`);
 });
