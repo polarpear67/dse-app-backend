@@ -8,7 +8,7 @@ const app = express();
 const PORT = process.env.PORT || 3000;
 
 // --- 1. CRITICAL CORS FIX ---
-// This tells the browser: "Yes, other websites are allowed to touch this data"
+// This tells the browser: "Yes, other websites are allowed to touch this data"d
 app.use(cors({
     origin: 'https://dse-app-frontend-j6i4zs9bj-polarpear67s-projects.vercel.app/', // Allow ALL origins (Easiest for SBA projects)
     methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
@@ -221,3 +221,4 @@ app.put('/api/notes/:id', async (req, res) => {
 
 // Export for Vercel
 module.exports = app;
+
