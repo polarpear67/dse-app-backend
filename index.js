@@ -11,7 +11,7 @@ const PORT = process.env.PORT || 3000;
 
 // --- MIDDLEWARE ---
 app.use(cors({
-    origin: '*', // Allow all origins (Frontend, Postman, etc.)
+    origin: '*', // Allow all origins
     methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
     allowedHeaders: ['Content-Type', 'Authorization']
 }));
@@ -20,19 +20,17 @@ app.use(bodyParser.json({ limit: '50mb' }));
 app.use(bodyParser.urlencoded({ limit: '50mb', extended: true }));
 
 // --- DATABASE CONNECTION ---
-// This uses the variables you set in Railway's "Variables" tab
 const db = mysql.createPool({
     host: process.env.DB_HOST,
     user: process.env.DB_USER,
     password: process.env.DB_PASSWORD,
     database: process.env.DB_NAME,
     port: process.env.DB_PORT || 3306,
-    // SSL is often required for Cloud Databases (Railway, TiDB, etc.)
     ssl: { rejectUnauthorized: false }, 
     waitForConnections: true,
     connectionLimit: 10,
     queueLimit: 0,
-    dateStrings: true // Returns dates as strings (YYYY-MM-DD) instead of Objects
+    dateStrings: true // Important: Returns dates as strings (YYYY-MM-DD)
 });
 
 // Helper for async/await queries
@@ -50,9 +48,9 @@ app.get('/', (req, res) => {
     res.send('DSE Survival Kit API is Running! 🚀');
 });
 
-// --- API ENDPOINTS (No User ID) ---
+// --- API ENDPOINTS (Matched to your DB Design) ---
 
-// 1. TASKS
+// 1. TASKS (Columns: id, text, completed, created_at)
 app.get('/api/tasks', async (req, res) => {
     try {
         const results = await query('SELECT * FROM tasks ORDER BY created_at DESC');
@@ -63,8 +61,8 @@ app.get('/api/tasks', async (req, res) => {
 app.post('/api/tasks', async (req, res) => {
     try {
         const { text } = req.body;
-        // Removed user_id from query
-        const result = await query('INSERT INTO tasks (text) VALUES (?)', [text]);
+        // 'completed' defaults to 0 (false) usually, but we can be explicit
+        const result = await query('INSERT INTO tasks (text, completed) VALUES (?, ?)', [text, 0]);
         res.json({ id: result.insertId, text, completed: 0 });
     } catch (e) { res.status(500).json({ error: e.message }); }
 });
@@ -84,7 +82,7 @@ app.delete('/api/tasks/:id', async (req, res) => {
     } catch (e) { res.status(500).json({ error: e.message }); }
 });
 
-// 2. QUESTION BANK
+// 2. QUESTIONS (Columns: id, subject, topic, question_text, answer_text, image_data, next_review, review_interval)
 app.get('/api/questions', async (req, res) => {
     try {
         const results = await query('SELECT * FROM questions');
@@ -98,7 +96,6 @@ app.post('/api/questions', async (req, res) => {
         const nextReview = new Date();
         nextReview.setDate(nextReview.getDate() + 1); // Default: Review tomorrow
         
-        // Removed user_id from query
         const result = await query(
             'INSERT INTO questions (subject, topic, question_text, answer_text, image_data, next_review, review_interval) VALUES (?, ?, ?, ?, ?, ?, 1)',
             [subject, topic, question, answer, image, nextReview]
@@ -117,7 +114,7 @@ app.put('/api/questions/:id/review', async (req, res) => {
     } catch (e) { res.status(500).json({ error: e.message }); }
 });
 
-// 3. DIARY
+// 3. DIARY (Columns: id, subject, description, due_date, completed, type)
 app.get('/api/diary', async (req, res) => {
     try {
         const results = await query('SELECT * FROM diary ORDER BY due_date ASC');
@@ -128,8 +125,7 @@ app.get('/api/diary', async (req, res) => {
 app.post('/api/diary', async (req, res) => {
     try {
         const { subject, description, dueDate, type } = req.body;
-        // Removed user_id from query
-        const result = await query('INSERT INTO diary (subject, description, due_date, type) VALUES (?, ?, ?, ?)', [subject, description, dueDate, type]);
+        const result = await query('INSERT INTO diary (subject, description, due_date, type, completed) VALUES (?, ?, ?, ?, ?)', [subject, description, dueDate, type, 0]);
         res.json({ id: result.insertId, ...req.body });
     } catch (e) { res.status(500).json({ error: e.message }); }
 });
@@ -149,7 +145,7 @@ app.delete('/api/diary/:id', async (req, res) => {
     } catch (e) { res.status(500).json({ error: e.message }); }
 });
 
-// 4. FINANCE
+// 4. FINANCE (Columns: id, description, amount, type, category, transaction_date)
 app.get('/api/finance', async (req, res) => {
     try {
         const results = await query('SELECT * FROM finance ORDER BY transaction_date DESC');
@@ -160,7 +156,6 @@ app.get('/api/finance', async (req, res) => {
 app.post('/api/finance', async (req, res) => {
     try {
         const { description, amount, type, category } = req.body;
-        // Removed user_id from query
         const result = await query('INSERT INTO finance (description, amount, type, category) VALUES (?, ?, ?, ?)', [description, amount, type, category]);
         res.json({ id: result.insertId, ...req.body });
     } catch (e) { res.status(500).json({ error: e.message }); }
@@ -173,7 +168,7 @@ app.delete('/api/finance/:id', async (req, res) => {
     } catch (e) { res.status(500).json({ error: e.message }); }
 });
 
-// 5. EVENTS
+// 5. EVENTS (Columns: id, title, event_date)
 app.get('/api/events', async (req, res) => {
     try {
         const results = await query('SELECT * FROM events');
@@ -184,7 +179,6 @@ app.get('/api/events', async (req, res) => {
 app.post('/api/events', async (req, res) => {
     try {
         const { title, date } = req.body;
-        // Removed user_id from query
         const result = await query('INSERT INTO events (title, event_date) VALUES (?, ?)', [title, date]);
         res.json({ id: result.insertId, title, event_date: date });
     } catch (e) { res.status(500).json({ error: e.message }); }
@@ -197,7 +191,7 @@ app.delete('/api/events/:id', async (req, res) => {
     } catch (e) { res.status(500).json({ error: e.message }); }
 });
 
-// 6. NOTES
+// 6. NOTES (Columns: id, title, body, last_modified)
 app.get('/api/notes', async (req, res) => {
     try {
         const results = await query('SELECT * FROM notes ORDER BY last_modified DESC');
@@ -208,7 +202,6 @@ app.get('/api/notes', async (req, res) => {
 app.post('/api/notes', async (req, res) => {
     try {
         const { title, body } = req.body;
-        // Removed user_id from query
         const result = await query('INSERT INTO notes (title, body) VALUES (?, ?)', [title, body]);
         res.json({ id: result.insertId, title, body });
     } catch (e) { res.status(500).json({ error: e.message }); }
@@ -217,13 +210,13 @@ app.post('/api/notes', async (req, res) => {
 app.put('/api/notes/:id', async (req, res) => {
     try {
         const { title, body } = req.body;
+        // Note: last_modified usually updates automatically in MySQL if defined with ON UPDATE CURRENT_TIMESTAMP
         await query('UPDATE notes SET title = ?, body = ? WHERE id = ?', [title, body, req.params.id]);
         res.json({ success: true });
     } catch (e) { res.status(500).json({ error: e.message }); }
 });
 
 // --- START SERVER ---
-// '0.0.0.0' is required for Railway to bind to the external network
 app.listen(PORT, '0.0.0.0', () => {
     console.log(`🚀 Server running on port ${PORT}`);
 });
