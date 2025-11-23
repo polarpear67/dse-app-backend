@@ -20,17 +20,14 @@ app.use(bodyParser.json({ limit: '50mb' }));
 app.use(bodyParser.urlencoded({ limit: '50mb', extended: true }));
 
 // --- DATABASE CONNECTION ---
-const db = mysql.createPool({
-    host: process.env.DB_HOST,
-    user: process.env.DB_USER,
-    password: process.env.DB_PASSWORD,
-    database: process.env.DB_NAME,
-    port: process.env.DB_PORT || 3306,
-    ssl: { rejectUnauthorized: false }, 
+const pool = mysql.createPool({
+    host: 'localhost',
+    user: 'polarpear',           // The user you created in Step 3
+    password: 'dbpassword',
+    database: 'dse_db',
     waitForConnections: true,
     connectionLimit: 10,
-    queueLimit: 0,
-    dateStrings: true // Important: Returns dates as strings
+    queueLimit: 0
 });
 
 // Helper for async/await queries
@@ -224,3 +221,4 @@ app.put('/api/notes/:id', async (req, res) => {
 app.listen(PORT, '0.0.0.0', () => {
     console.log(`🚀 Server running on port ${PORT}`);
 });
+
