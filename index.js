@@ -2,12 +2,11 @@ const express = require('express');
 const mysql = require('mysql2');
 const cors = require('cors');
 const bodyParser = require('body-parser');
-require('dotenv').config();
 
 const app = express();
 
 // Railway automatically assigns a port via process.env.PORT
-const PORT = process.env.PORT || 3000;
+const PORT = 3000;
 
 // --- MIDDLEWARE ---
 app.use(cors({
@@ -221,4 +220,5 @@ app.put('/api/notes/:id', async (req, res) => {
 app.listen(PORT, '0.0.0.0', () => {
     console.log(`🚀 Server running on port ${PORT}`);
 });
+
 
